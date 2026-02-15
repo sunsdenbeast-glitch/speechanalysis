@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Speech Analyzer (Demo Mode)</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .recording {
+            animation: pulse-slow 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        .pulse-ring {
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="gradient-bg text-white py-8 px-4">
+        <div class="max-w-6xl mx-auto">
+            <h1 class="text-4xl font-bold mb-2">🎤 Live Speech Analyzer</h1>
+            <p class="text-purple-100">Speak naturally and get instant AI-powered feedback</p>
+            <p class="text-sm text-purple-200 mt-2">✨ Demo Mode - Works offline with simulated AI analysis</p>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 py-8">
+        <!-- Main Section -->
+        <div id="mainSection" class="bg-white rounded-lg shadow-lg p-8 mb-6">
+            <!-- Topic -->
+            <div class="text-center mb-8">
+                <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-3">📋 Your Speaking Topic</h2>
+                    <p class="text-xl text-purple-900 font-semibold">
+                        "When was the last time you helped someone?"
+                    </p>
+                    <p class="text-sm text-gray-600 mt-3">Click the microphone below to start</p>
+                    <p class="text-xs text-amber-600 mt-2" id="mobileNote" style="display: none;">
+                        📱 Mobile users: Speak clearly and pause between sentences for best transcription
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">💡 Browser speech recognition may clean up some filler words automatically</p>
+                </div>
+            </div>
+
+            <!-- Microphone Button -->
+            <div class="flex flex-col items-center mb-6">
+                <div class="relative">
+                    <div id="pulseRing" class="hidden absolute inset-0 rounded-full bg-red-500 pulse-ring"></div>
+                    <button id="micBtn" class="relative bg-purple-600 hover:bg-purple-700 text-white rounded-full p-8 shadow-2xl transition-all transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div id="status" class="mt-4 text-center">
+                    <p class="text-gray-600 font-semibold">Click to start recording</p>
+                    <p class="text-sm text-gray-500 mt-1">Allow microphone access when prompted</p>
+                </div>
+                <div id="timer" class="hidden mt-2 text-3xl font-bold text-purple-600">00:00</div>
+            </div>
+
+            <!-- Live Transcript -->
+            <div id="transcriptContainer" class="hidden">
+                <h3 class="text-lg font-bold text-gray-800 mb-3 flex items-center">
+                    <span class="text-2xl mr-2">📝</span>
+                    Live Transcript
+                    <span class="ml-3 text-sm text-purple-600 recording">● Listening...</span>
+                </h3>
+                <div id="transcript" class="bg-gray-50 border-2 border-gray-200 rounded-lg p-4 min-h-32 text-gray-700 leading-relaxed"></div>
+                <div class="mt-3 flex items-center justify-between">
+                    <div class="text-sm text-gray-500">
+                        <span id="wordCount">0</span> words
+                    </div>
+                    <button id="stopBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow-lg">
+                        ⏹️ Stop & Analyze
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Section -->
+        <div id="loadingSection" class="hidden bg-white rounded-lg shadow-lg p-8 mb-6">
+            <div class="text-center">
+                <div class="inline-block">
+                    <svg class="h-16 w-16 text-purple-600 mx-auto recording" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800 mt-4">Analyzing Your Speech...</h3>
+                <p class="text-gray-600 mt-2">Processing transcript with demo AI</p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden">
+            <!-- Overall Score -->
+            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-800">Overall Performance</h2>
+                        <p class="text-gray-600 mt-1">Your speech analysis results</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-5xl font-bold text-purple-600" id="overallScore">--</div>
+                        <div class="text-sm text-gray-500 mt-1">Overall Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-600 font-semibold">Filler Words</span>
+                        <span class="text-2xl">💬</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="fillerCount">--</div>
+                    <div class="text-sm text-gray-500 mt-1">total detected</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-600 font-semibold">Word Count</span>
+                        <span class="text-2xl">📊</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="totalWords">--</div>
+                    <div class="text-sm text-gray-500 mt-1">total words</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-600 font-semibold">Duration</span>
+                        <span class="text-2xl">⏱️</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="duration">--</div>
+                    <div class="text-sm text-gray-500 mt-1">seconds</div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-gray-600 font-semibold">Clarity</span>
+                        <span class="text-2xl">✨</span>
+                    </div>
+                    <div class="text-3xl font-bold text-gray-800" id="clarityScore">--</div>
+                    <div class="text-sm text-gray-500 mt-1">out of 100</div>
+                </div>
+            </div>
+
+            <!-- Analysis Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <span class="text-2xl mr-2">📋</span>
+                        Structure Analysis
+                    </h3>
+                    <div id="structureAnalysis" class="text-gray-700"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                        <span class="text-2xl mr-2">🎯</span>
+                        Filler Words Detected
+                    </h3>
+                    <div id="fillerBreakdown" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="bg-white rounded-lg shadow-lg p-8 mb-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">💡</span>
+                    Personalized Recommendations
+                </h3>
+                <div id="recommendations" class="space-y-4"></div>
+            </div>
+
+            <!-- Full Transcript -->
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                    <span class="text-2xl mr-2">📝</span>
+                    Full Transcript
+                </h3>
+                <div id="finalTranscript" class="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded"></div>
+            </div>
+
+            <!-- New Analysis Button -->
+            <div class="mt-6 text-center">
+                <button id="newAnalysisBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg">
+                    🎤 Record Another Speech
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let mediaRecorder;
+        let recognition;
+        let fullTranscript = '';
+        let startTime;
+        let timerInterval;
+        let recordingDuration = 0;
+        let isRecording = false;
+        let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // DOM elements
+        const micBtn = document.getElementById('micBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const pulseRing = document.getElementById('pulseRing');
+        const status = document.getElementById('status');
+        const timer = document.getElementById('timer');
+        const transcriptContainer = document.getElementById('transcriptContainer');
+        const transcript = document.getElementById('transcript');
+        const wordCount = document.getElementById('wordCount');
+        const mainSection = document.getElementById('mainSection');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const newAnalysisBtn = document.getElementById('newAnalysisBtn');
+
+        console.log('Device type:', isMobile ? 'Mobile' : 'Desktop');
+        console.log('User Agent:', navigator.userAgent);
+
+        // Show mobile-specific note
+        if (isMobile) {
+            document.getElementById('mobileNote').style.display = 'block';
+        }
+
+        // Initialize Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            alert('Speech recognition not supported on this browser. Please use Chrome or Safari.');
+            console.error('Speech recognition not available');
+        } else {
+            console.log('Speech recognition available');
+            recognition = new SpeechRecognition();
+            recognition.continuous = !isMobile; // Mobile works better with continuous=false
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                console.log('✓ Speech recognition started');
+            };
+
+            recognition.onend = () => {
+                console.log('Speech recognition ended');
+                // Auto-restart if still recording (only on desktop)
+                if (isRecording && !isMobile) {
+                    try {
+                        console.log('Attempting to restart recognition...');
+                        recognition.start();
+                    } catch (e) {
+                        console.log('Could not restart:', e);
+                    }
+                }
+            };
+            
+            recognition.onresult = (event) => {
+                console.log('Recognition result received');
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const text = event.results[i][0].transcript;
+                    console.log('Transcript chunk:', text, 'Final:', event.results[i].isFinal);
+                    
+                    if (event.results[i].isFinal) {
+                        finalTranscript += text + ' ';
+                    } else {
+                        interimTranscript += text;
+                    }
+                }
+
+                if (finalTranscript) {
+                    fullTranscript += finalTranscript;
+                    console.log('Updated full transcript length:', fullTranscript.length);
+                }
+
+                const displayText = fullTranscript + interimTranscript;
+                transcript.textContent = displayText;
+                wordCount.textContent = displayText.trim().split(/\s+/).filter(w => w).length;
+                
+                // On mobile, restart recognition after getting final result
+                if (isMobile && finalTranscript && isRecording) {
+                    setTimeout(() => {
+                        if (isRecording) {
+                            try {
+                                recognition.start();
+                                console.log('Mobile: Recognition restarted');
+                            } catch (e) {
+                                console.log('Mobile restart failed:', e);
+                            }
+                        }
+                    }, 100);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error, event);
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    console.error('Serious error:', event.error);
+                    // Try to restart on certain errors
+                    if (isRecording && event.error === 'network') {
+                        setTimeout(() => {
+                            if (isRecording) {
+                                try {
+                                    recognition.start();
+                                    console.log('Restarted after network error');
+                                } catch (e) {
+                                    console.log('Restart failed:', e);
+                                }
+                            }
+                        }, 1000);
+                    }
+                }
+            };
+        }
+
+        // Event listeners
+        micBtn.addEventListener('click', toggleRecording);
+        stopBtn.addEventListener('click', stopRecording);
+        newAnalysisBtn.addEventListener('click', resetAnalysis);
+
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                console.log('Starting recording...');
+                micBtn.disabled = true;
+                status.innerHTML = '<p class="text-blue-600 font-semibold">Requesting permission...</p>';
+
+                // Request microphone
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+
+                console.log('✓ Microphone access granted');
+
+                // Start recording
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                console.log('✓ MediaRecorder started');
+
+                // Start speech recognition
+                // On mobile, need to ensure user interaction context
+                fullTranscript = '';
+                
+                const startDelay = isMobile ? 300 : 500;
+                setTimeout(() => {
+                    try {
+                        console.log('Starting speech recognition...');
+                        recognition.start();
+                        console.log('✓ Recognition start called');
+                    } catch (e) {
+                        console.error('Recognition start error:', e);
+                        alert('Speech recognition failed to start: ' + e.message + '\n\nTry speaking and tapping Stop after a few seconds.');
+                    }
+                }, startDelay);
+
+                // Update UI
+                isRecording = true;
+                micBtn.classList.add('recording', 'bg-red-600', 'hover:bg-red-700');
+                micBtn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                pulseRing.classList.remove('hidden');
+                
+                const mobileHint = isMobile ? '<p class="text-xs text-amber-600 mt-1">Mobile: Speak clearly and pause between sentences</p>' : '';
+                status.innerHTML = '<p class="text-red-600 font-bold text-xl">🔴 Recording...</p><p class="text-sm text-gray-500 mt-1">Speak naturally about the topic</p>' + mobileHint;
+                
+                transcriptContainer.classList.remove('hidden');
+                micBtn.disabled = false;
+                
+                // Start timer
+                startTime = Date.now();
+                timer.classList.remove('hidden');
+                timerInterval = setInterval(updateTimer, 100);
+
+            } catch (error) {
+                console.error('Error:', error);
+                micBtn.disabled = false;
+                
+                let errorMsg = 'Could not access microphone. ';
+                if (error.name === 'NotAllowedError') {
+                    errorMsg += 'Permission denied. Please allow microphone access in your browser settings.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg += 'No microphone found.';
+                } else {
+                    errorMsg += error.message;
+                }
+                
+                status.innerHTML = `<p class="text-red-600 font-semibold text-sm">${errorMsg}</p>`;
+            }
+        }
+
+        function updateTimer() {
+            recordingDuration = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(recordingDuration / 60);
+            const seconds = recordingDuration % 60;
+            timer.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function stopRecording() {
+            if (!isRecording) return;
+            
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            if (recognition) {
+                recognition.stop();
+            }
+            
+            clearInterval(timerInterval);
+            isRecording = false;
+
+            analyzeTranscript(fullTranscript);
+        }
+
+        async function analyzeTranscript(text) {
+            if (!text || text.trim().split(/\s+/).length < 5) {
+                alert('Please speak for at least 5 words before analyzing.');
+                resetToStart();
+                return;
+            }
+
+            mainSection.classList.add('hidden');
+            loadingSection.classList.remove('hidden');
+
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Generate realistic analysis based on actual transcript
+            const analysis = generateAnalysis(text);
+            displayResults(analysis, text);
+        }
+
+        function generateAnalysis(text) {
+            const words = text.trim().split(/\s+/);
+            const wordCount = words.length;
+            
+            // Detect common filler words (case insensitive)
+            const fillerWords = {};
+            const fillers = ['um', 'uh', 'like', 'you know', 'so', 'actually', 'basically', 'literally'];
+            let totalFillers = 0;
+            
+            const lowerText = text.toLowerCase();
+            fillers.forEach(filler => {
+                const regex = new RegExp('\\b' + filler + '\\b', 'gi');
+                const matches = lowerText.match(regex);
+                if (matches && matches.length > 0) {
+                    fillerWords[filler] = matches.length;
+                    totalFillers += matches.length;
+                }
+            });
+
+            // Calculate scores
+            const fillerRatio = totalFillers / wordCount;
+            let clarityScore = Math.max(60, 100 - (fillerRatio * 300));
+            let overallScore = Math.max(65, 95 - (fillerRatio * 200) - (wordCount < 50 ? 10 : 0));
+            
+            clarityScore = Math.round(clarityScore);
+            overallScore = Math.round(overallScore);
+
+            // Generate recommendations
+            const recommendations = [];
+            if (totalFillers > 5) {
+                recommendations.push(`You used ${totalFillers} filler words. Try practicing with intentional pauses instead of fillers to sound more confident.`);
+            }
+            if (wordCount < 50) {
+                recommendations.push('Your response was brief. Try elaborating more with specific details and examples to make your answer more engaging.');
+            } else if (wordCount > 150) {
+                recommendations.push('Good detail! Just ensure you stay focused on the key points to maintain listener attention.');
+            }
+            if (fillerRatio < 0.05) {
+                recommendations.push('Excellent clarity! Your speech has minimal filler words, which shows good preparation and confidence.');
+            }
+            recommendations.push('Practice your response beforehand to improve flow and reduce hesitation.');
+
+            return {
+                overallScore,
+                fillerWords,
+                totalFillers,
+                wordCount,
+                clarityScore,
+                structure: wordCount > 80 
+                    ? "Your response has good detail and covers the topic well. The narrative flows naturally from the situation to the action you took."
+                    : "Your response answers the question but could benefit from more elaboration. Try adding more context about the situation and impact.",
+                recommendations
+            };
+        }
+
+        function displayResults(analysis, originalText) {
+            loadingSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+
+            document.getElementById('overallScore').textContent = analysis.overallScore;
+            document.getElementById('fillerCount').textContent = analysis.totalFillers;
+            document.getElementById('totalWords').textContent = analysis.wordCount;
+            document.getElementById('duration').textContent = recordingDuration;
+            document.getElementById('clarityScore').textContent = analysis.clarityScore;
+            document.getElementById('structureAnalysis').textContent = analysis.structure;
+
+            const fillerDiv = document.getElementById('fillerBreakdown');
+            const fillerEntries = Object.entries(analysis.fillerWords);
+            if (fillerEntries.length > 0) {
+                fillerDiv.innerHTML = fillerEntries
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([word, count]) => `
+                        <div class="flex justify-between items-center bg-gray-50 p-2 rounded">
+                            <span class="font-semibold">"${word}"</span>
+                            <span class="text-purple-600 font-bold">${count}x</span>
+                        </div>
+                    `).join('');
+            } else {
+                fillerDiv.innerHTML = '<p class="text-gray-500 text-sm">No filler words detected! Great job! 🎉</p>';
+            }
+
+            const recDiv = document.getElementById('recommendations');
+            recDiv.innerHTML = analysis.recommendations.map((rec, i) => `
+                <div class="flex items-start space-x-3 bg-purple-50 p-4 rounded-lg">
+                    <span class="text-purple-600 font-bold text-lg">${i + 1}.</span>
+                    <p class="text-gray-700">${rec}</p>
+                </div>
+            `).join('');
+
+            let highlightedText = originalText;
+            Object.keys(analysis.fillerWords).forEach(filler => {
+                const regex = new RegExp(`\\b${filler}\\b`, 'gi');
+                highlightedText = highlightedText.replace(regex, 
+                    `<mark class="bg-yellow-200 px-1 rounded">${filler}</mark>`);
+            });
+            document.getElementById('finalTranscript').innerHTML = highlightedText;
+
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function resetToStart() {
+            isRecording = false;
+            micBtn.classList.remove('recording', 'bg-red-600', 'hover:bg-red-700');
+            micBtn.classList.add('bg-purple-600', 'hover:bg-purple-700');
+            pulseRing.classList.add('hidden');
+            status.innerHTML = '<p class="text-gray-600 font-semibold">Click to start recording</p><p class="text-sm text-gray-500 mt-1">Allow microphone access when prompted</p>';
+            transcriptContainer.classList.add('hidden');
+            transcript.textContent = '';
+            wordCount.textContent = '0';
+            timer.classList.add('hidden');
+            micBtn.disabled = false;
+            fullTranscript = '';
+            recordingDuration = 0;
+        }
+
+        function resetAnalysis() {
+            resetToStart();
+            loadingSection.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            mainSection.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
